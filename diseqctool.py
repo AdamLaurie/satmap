@@ -145,10 +145,12 @@ while current < len(sys.argv):
 		current += 1
 		dvb.DVB_Adapter= int(sys.argv[current])
 		print
-		print '  Setting adapter to %d (%s)' % (dvb.DVB_Adapter, dvb.adapter()),
+		print '  Setting adapter to %d (%s):' % (dvb.DVB_Adapter, dvb.adapter())
 		DVB_FE_Device= dvb.frontend()
 		DVB_DEMUX_Device= dvb.demux()
-		print 'OK'
+		FrontEnd_fd, FrontEnd_poll, Front_End = init_frontend(False)
+		dvb.display_fe_device(DVB_FE_Device,FrontEnd)
+		print 
 		current += 1
 		continue
 	if command == 'DEMUX':
@@ -196,7 +198,6 @@ while current < len(sys.argv):
 	if command == 'FIND':
 		current += 1
 		print
-		print '  Finding transponder with frequency',
 		Frequency= int(sys.argv[current])
 		FrontEnd_fd, FrontEnd_poll, Front_End = init_frontend(False)
 		reset_frontend()
@@ -204,12 +205,12 @@ while current < len(sys.argv):
 			print 'value below minimum of %d:' % (Front_End.frequency_min + dvb.LOW_OFFSET),
 		if Frequency > Front_End.frequency_max + dvb.HIGH_OFFSET:
 			print 'value above maximum of %d:' % (Front_End.frequency_max + dvb.HIGH_OFFSET),
-		print '%d' % Frequency,
 		current += 1
 		Polarity= sys.argv[current].upper()
 		current += 1
 		SymbolRate= int(sys.argv[current])
 		current += 1
+		print '  Finding transponder %d/%s/%d' % (Frequency, Polarity, SymbolRate), 
 		if sys.argv[current].upper() == 'EAST':
 			print 'EASTwards'
 			diseqc_command= dvb.DISEQC_DRIVE_E
@@ -226,11 +227,10 @@ while current < len(sys.argv):
 			status, ber, snr, strength, params = dvb.dvb_fe_status(FrontEnd_fd)
 			if status.status & dvb.FE_HAS_LOCK:
 				if not found:
-					print '    Found after %d steps' % steps
+					print '   Found after %d steps' % steps
 				found += 1
 				time.sleep(1)
 				status, ber, snr, strength, params = dvb.dvb_fe_status(FrontEnd_fd)
-				print '    signal strength:', strength
 				# expect signal strength to rise steadily after the first couple of 
 				# erroneous 'edge' signals
 				strengths.append(strength)
@@ -240,7 +240,7 @@ while current < len(sys.argv):
 			status, error= dvb.diseqc_drive(FrontEnd_fd, FrontEnd_poll, diseqc_command, 'STEP', 1, 1)
 			steps += 1
 			if status:
-				print '   ', steps,'\r',
+				print '   step: %d BER: %d SNR: %d Signal Strength: %d' % (steps, ber, snr, strength)
 				sys.stdout.flush()
 			else:
 				print 'Failed!', error
@@ -260,9 +260,12 @@ while current < len(sys.argv):
 			time.sleep(1)
 			status, ber, snr, strength, params = dvb.dvb_fe_status(FrontEnd_fd)
 			print '        signal strength:', strength
+			steps -= 1
 		if x.count(x[-1]) > 1:
 			print '          stepping another %d steps to centre' % (x.count(x[-1]) / 2)
 			dvb.diseqc_drive(FrontEnd_fd, FrontEnd_poll, diseqc_command, 'STEP', x.count(x[-1]) / 2, x.count(x[-1]) / 2)
+			steps -= x.count(x[-1]) / 2
+			print '          total steps from starting position:', steps
 		current += 1
 		continue
 	if command == 'FREQ':
