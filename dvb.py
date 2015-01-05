@@ -677,9 +677,9 @@ def display_diseqc_status(fd, poller):
 	if not ret:
 		return ret, status
 
-	print '%02x', status.data[0]
-	print '%02x', status.data[1]
-	print '%02x', status.data[2]
+	print '%02x' % status.data[0]
+	print '%02x' % status.data[1]
+	print '%02x' % status.data[2]
 
 	return True, None
 

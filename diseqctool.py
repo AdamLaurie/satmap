@@ -108,6 +108,7 @@ if len(sys.argv) == 1:
 	print "     FE <DEVICE>                                      Set DVB Front End device (default is '%s')" % DVB_FE_Device
 	print "     FIND <FREQ> <'H'|'V'> <RATE> <'EAST'|'WEST'>     Find and centre on active signal"
 	print '     FREQ <FREQ>                                      Set Frequency in Hz (default is %d)' % Frequency
+	print '     FSCAN <STEP>                                     Perform frequency only scan'
 	print '     GOTO <#>                                         Goto stored satellite position #'
 	print '     INFO                                             Show Front End device info'
 	print "     LIMIT <'EAST'|'WEST'>                            Set EAST or WEST motor drive end stops"
@@ -225,15 +226,17 @@ while current < len(sys.argv):
 			# find an active signal
 			dvb.dvb_tune(FrontEnd_fd, FrontEnd_poll, Frequency, Polarity, SymbolRate)
 			status, ber, snr, strength, params = dvb.dvb_fe_status(FrontEnd_fd)
-			if status.status & dvb.FE_HAS_LOCK:
-				if not found:
-					print '   Found after %d steps' % steps
-				found += 1
+			if status.status & dvb.FE_HAS_LOCK and snr > 0 and ber == 0:
+				# filter out random crap by checking again
 				time.sleep(1)
 				status, ber, snr, strength, params = dvb.dvb_fe_status(FrontEnd_fd)
-				# expect signal strength to rise steadily after the first couple of 
-				# erroneous 'edge' signals
-				strengths.append(strength)
+				if status.status & dvb.FE_HAS_LOCK and snr > 0 and ber == 0:
+					if not found:
+						print '   Found after %d steps' % steps
+					found += 1
+					# expect signal strength to rise steadily after the first couple of 
+					# erroneous 'edge' signals
+					strengths.append(strength)
 			else:
 				if found:
 					finished= True
@@ -265,7 +268,7 @@ while current < len(sys.argv):
 			print '          stepping another %d steps to centre' % (x.count(x[-1]) / 2)
 			dvb.diseqc_drive(FrontEnd_fd, FrontEnd_poll, diseqc_command, 'STEP', x.count(x[-1]) / 2, x.count(x[-1]) / 2)
 			steps -= x.count(x[-1]) / 2
-			print '          total steps from starting position:', steps
+		print '          total steps from starting position:', steps
 		current += 1
 		continue
 	if command == 'FREQ':
@@ -285,6 +288,27 @@ while current < len(sys.argv):
 			print 'Failed!'
 		else:
 			print 'OK'
+		current += 1
+		continue
+	if command == 'FSCAN':
+		current += 1
+		step= int(sys.argv[current])
+		print
+		print '  Performing frequency scan in steps of %d (%d steps):' % (step, ((FrontEnd.frequency_max + dvb.HIGH_OFFSET) - (FrontEnd.frequency_min + dvb.LOW_OFFSET)) / step)
+		sys.stdout.flush()
+		init_frontend(False)
+		reset_frontend()
+		# wait for settle
+		time.sleep(1)
+		Frequency= FrontEnd.frequency_min + dvb.LOW_OFFSET
+		while Frequency <= FrontEnd.frequency_max + dvb.HIGH_OFFSET:
+			status, strength= dvb.detect_signal_strength(FrontEnd_fd, FrontEnd_poll, Frequency, Polarity, SymbolRate)
+			if status:
+				print '    %d: %d' % (Frequency, strength)
+			else:
+				print '  Failed!'
+				exit(True)
+			Frequency += step
 		current += 1
 		continue
 	if command == 'GOTO':
@@ -374,9 +398,9 @@ while current < len(sys.argv):
 		time.sleep(1)
 		steps= 0
 		while steps < 100:
-			Frequency= FrontEnd.frequency_min + LOW_OFFSET
-			while Frequency <= FrontEnd.frequency_max + HIGH_OFFSET:
-				status, strength= detect_signal_strength(FrontEnd_fd, FrontEnd_poll, Frequency, Polarity, SymbolRate)
+			Frequency= FrontEnd.frequency_min + dvb.LOW_OFFSET
+			while Frequency <= FrontEnd.frequency_max + dvb.HIGH_OFFSET:
+				status, strength= dvb.detect_signal_strength(FrontEnd_fd, FrontEnd_poll, Frequency, Polarity, SymbolRate)
 				if status:
 					print '%d,%d,%d' % (steps, Frequency, strength)
 				else:
