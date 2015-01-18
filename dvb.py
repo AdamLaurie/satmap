@@ -723,15 +723,15 @@ def diseqc_enable_limits(fd, poller):
 	return diseqc_store(fd, poller, 0)
 
 def diseqc_drive(fd, poller, command, type, steps, power_time):
-	# set top bit if we're stepping
+	# send negative value if stepping
 	if type == 'STEP':
-		steps= 0xFF - steps
+		steps= 0xff - (steps - 1)
 
 	# power on
 	diseqc_power_on(fd, poller)
-	time.sleep(.5)
+	time.sleep(2)
 	stat, ret= diseqc_send(fd, poller, command, chr(steps), False)
-	if stat:
+	if stat and type == 'TIME':
 		# stay powered on for desired time
 		time.sleep(power_time)
 	return stat, ret

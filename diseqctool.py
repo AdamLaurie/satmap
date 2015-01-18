@@ -104,7 +104,7 @@ if len(sys.argv) == 1:
 	print
 	print '     ADAPTER <#>                                      Set DVB adapter no (Default is 0)'
 	print "     DEMUX <DEVICE>                                   Set DVB Demux device (default is '%s')" % DVB_DEMUX_Device
-	print "     EAST <'STEP'|'TIME'> <#>                         Drive EAST for # steps or seconds (TIME 0 drives to end stop)"
+	print "     EAST <'STEP'|'TIME'> <#>                         Drive EAST for up to 128 steps or seconds (TIME 0 drives to end stop)"
 	print "     FE <DEVICE>                                      Set DVB Front End device (default is '%s')" % DVB_FE_Device
 	print "     FIND <FREQ> <'H'|'V'> <RATE> <'EAST'|'WEST'>     Find and centre on active signal"
 	print '     FREQ <FREQ>                                      Set Frequency in Hz (default is %d)' % Frequency
@@ -122,7 +122,7 @@ if len(sys.argv) == 1:
 	print '     STORE <#>                                        Store current position as satellite #'
 	print '     SYMBOL <RATE>                                    Set Symbol Rate (default is %d)' % SymbolRate
 	print '     TUNE                                             Tune DVB Receiver (default is %d Hz, %s, Symbolrate %d)' % (Frequency, dvb.POLARITIES[Polarity], SymbolRate)
-	print "     WEST <'STEP'|'TIME'> <#>                         Drive WEST for # steps or seconds (TIME 0 drives to end stop)"
+	print "     WEST <'STEP'|'TIME'> <#>                         Drive WEST for up to 128 steps or seconds (TIME 0 drives to end stop)"
 	print
 	print '  Commands will be executed sequentially and must be combined as appropriate.'
 	print
@@ -133,8 +133,7 @@ if len(sys.argv) == 1:
 	print
 	print '  Timings will vary with equipment, but as there is no way for Diseqc 1.x compliant'
 	print '  hardware to tell when a positioning command has finished, you must ensure that'
-	print '  power is made available for the maximum possible duration of any movement. EAST/WEST'
-	print '  STEP command are self powering (# + 1 seconds).'
+	print '  power is made available for the maximum possible duration of any movement.'
 	print
 	exit(True)
 
@@ -174,8 +173,11 @@ while current < len(sys.argv):
 		else:
 			diseqc_command= dvb.DISEQC_DRIVE_W
 		print
-		print '  Driving %s -' % command,
+		print '  Driving %s %d -' % (command, steps),
 		sys.stdout.flush()
+		if steps > 128:
+			print 'Max steps is 128!'
+			exit(True)
 		FrontEnd_fd, FrontEnd_poll, Front_End = init_frontend(False)
 		reset_frontend()
 		status, error= dvb.diseqc_drive(FrontEnd_fd, FrontEnd_poll, diseqc_command, type, steps, steps)
@@ -302,12 +304,15 @@ while current < len(sys.argv):
 		time.sleep(1)
 		Frequency= FrontEnd.frequency_min + dvb.LOW_OFFSET
 		while Frequency <= FrontEnd.frequency_max + dvb.HIGH_OFFSET:
-			status, strength= dvb.detect_signal_strength(FrontEnd_fd, FrontEnd_poll, Frequency, Polarity, SymbolRate)
-			if status:
-				print '    %d: %d' % (Frequency, strength)
-			else:
-				print '  Failed!'
-				exit(True)
+			for Polarity in 'H', 'V':
+				dvb.set_polarity(FrontEnd_fd, Polarity)
+				status, strength= dvb.detect_signal_strength(FrontEnd_fd, FrontEnd_poll, Frequency, Polarity, SymbolRate)
+				if status:
+					print '    %d/%s: %d' % (Frequency, Polarity, strength),
+				else:
+					print '  Failed!'
+					exit(True)
+			print
 			Frequency += step
 		current += 1
 		continue
