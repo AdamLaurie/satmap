@@ -302,12 +302,15 @@ while current < len(sys.argv):
 		time.sleep(1)
 		Frequency= FrontEnd.frequency_min + dvb.LOW_OFFSET
 		while Frequency <= FrontEnd.frequency_max + dvb.HIGH_OFFSET:
-			status, strength= dvb.detect_signal_strength(FrontEnd_fd, FrontEnd_poll, Frequency, Polarity, SymbolRate)
-			if status:
-				print '    %d: %d' % (Frequency, strength)
-			else:
-				print '  Failed!'
-				exit(True)
+			for Polarity in 'H', 'V':
+				dvb.set_polarity(FrontEnd_fd, Polarity)
+				status, strength= dvb.detect_signal_strength(FrontEnd_fd, FrontEnd_poll, Frequency, Polarity, SymbolRate)
+				if status:
+					print '    %d/%s: %d' % (Frequency, Polarity, strength),
+				else:
+					print '  Failed!'
+					exit(True)
+			print
 			Frequency += step
 		current += 1
 		continue
