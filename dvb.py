@@ -80,7 +80,6 @@
 #    no status returned from the positioner.
 
 import os
-#import sys
 import fcntl
 from ctypes import *
 import select
@@ -348,13 +347,16 @@ class DVB_FRONTEND_VALUE_32 (Structure):
 #
 
 SYMBOL_RATES =	[
-		27500000,
-#		28000000,
+		30000000,
+		29950000,
 #		29500000,
 #		29900000,
+#		28000000,
+		27500000,
 		22000000,
 		17000000,
 #		16300000,
+		13268000,
 #		3333000,
 #		6111000,
 #		6666000
@@ -581,8 +583,8 @@ def open_fe(frontend):
 	try:
 		fe_fd= open(frontend,'wb',UNBUFFERED)
 		fcntl.ioctl(fe_fd,FE_GET_INFO,fe,True)
-	except:
-		return None, None, None
+	except Exception, e:
+		return None, None, e
 
 	if not fe.type == FE_TYPE_QPSK:
 		print 'Fail! Wrong DVB type: %s - Only QPSK (DVB-S) devices supported.' % FE_TYPE_T[fe.type]

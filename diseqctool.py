@@ -62,6 +62,7 @@ def init_frontend(reinit):
 	FrontEnd_fd, FrontEnd_poll, FrontEnd = dvb.open_fe(DVB_FE_Device)
 	if not FrontEnd_fd:
 		print 'Fail! No DVB frontend device detected!'
+		print FrontEnd
 		exit(True)
 	if Frequency < FrontEnd.frequency_min + dvb.LOW_OFFSET:
 		Frequency= FrontEnd.frequency_min + dvb.LOW_OFFSET
@@ -413,7 +414,7 @@ while current < len(sys.argv):
 					exit(True)
 				Frequency += Step
 			steps += 1
-			diseqc_drive(FrontEnd_fd, FrontEnd_poll, DISEQC_DRIVE_E, 'STEP', 1)
+			dvb.diseqc_drive(FrontEnd_fd, FrontEnd_poll, DISEQC_DRIVE_E, 'STEP', 1, 1)
 		current += 1
 		continue
 	if command == 'SIGNAL':
